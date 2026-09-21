@@ -1,3 +1,4 @@
+mod ai;
 mod store;
 
 use store::Question;
@@ -48,13 +49,43 @@ fn delete_question(app: tauri::AppHandle, id: String) -> Result<(), String> {
     store::remove(&path, &id)
 }
 
+#[tauri::command]
+async fn draft_answer(app: tauri::AppHandle, id: String) -> Result<Question, String> {
+    let key = std::env::var("ANTHROPIC_API_KEY")
+        .ok()
+        .filter(|k| !k.trim().is_empty())
+        .ok_or_else(|| {
+            "No API key found. Set ANTHROPIC_API_KEY in a .env file (see the README), then restart the app."
+                .to_string()
+        })?;
+    let path = store_path(&app)?;
+
+    // 1. load the question (lock released before any await)
+    let q = {
+        let _g = lock()?;
+        store::find(&path, &id)?
+    };
+
+    // 2-3. call the API and parse the JSON reply
+    let draft = ai::request_draft(key.trim(), &q.question, &q.context, &q.asker).await?;
+
+    // 4-5. write it back and return the updated record
+    let _g = lock()?;
+    store::set_draft(&path, &id, draft)
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    // Load ANTHROPIC_API_KEY from a local .env if present (searches parent folders too,
+    // so it works from `npm run tauri dev`). Absence is fine.
+    let _ = dotenvy::dotenv();
+
     tauri::Builder::default()
         .invoke_handler(tauri::generate_handler![
             save_question,
             list_questions,
-            delete_question
+            delete_question,
+            draft_answer
         ])
         .run(tauri::generate_context!())
         .expect("error while running Question Desk");

@@ -1,0 +1,15 @@
+[package]
+name = "question-desk"
+version = "0.1.0"
+description = "Log hard questions locally and get an AI-drafted first response"
+edition = "2021"
+
+[lib]
+name = "question_desk_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }

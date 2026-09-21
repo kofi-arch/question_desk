@@ -121,6 +121,25 @@ pub fn remove(path: &Path, id: &str) -> Result<(), String> {
     save_all(path, &items)
 }
 
+pub fn find(path: &Path, id: &str) -> Result<Question, String> {
+    load(path)?
+        .into_iter()
+        .find(|q| q.id == id)
+        .ok_or_else(|| "That question no longer exists.".to_string())
+}
+
+pub fn set_draft(path: &Path, id: &str, draft: Draft) -> Result<Question, String> {
+    let mut items = load(path)?;
+    let q = items
+        .iter_mut()
+        .find(|q| q.id == id)
+        .ok_or_else(|| "That question was deleted while the draft was being written.".to_string())?;
+    q.draft = Some(draft);
+    let updated = q.clone();
+    save_all(path, &items)?;
+    Ok(updated)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -152,6 +171,16 @@ mod tests {
     #[test]
     fn empty_question_rejected() {
         assert!(add(&tmp_path("empty"), "x", "y", "   ", vec![]).is_err());
+    }
+
+    #[test]
+    fn draft_persists() {
+        let p = tmp_path("draft");
+        let q = add(&p, "", "", "Q?", vec![]).unwrap();
+        let d = Draft { draft: "hi".into(), verify: vec!["a".into()], model: "m".into(), created_at: "t".into() };
+        let updated = set_draft(&p, &q.id, d.clone()).unwrap();
+        assert_eq!(updated.draft, Some(d.clone()));
+        assert_eq!(find(&p, &q.id).unwrap().draft, Some(d));
     }
 
     #[test]

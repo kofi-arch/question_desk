@@ -31,7 +31,9 @@ const list = $<HTMLUListElement>("list");
 
 let questions: Question[] = [];
 // Per-row UI state that must survive re-renders.
+const busy = new Set<string>(); // ids currently drafting
 const confirming = new Set<string>(); // ids awaiting delete confirmation
+const rowErrors = new Map<string, string>();
 
 function errText(e: unknown): string {
   return typeof e === "string" ? e : e instanceof Error ? e.message : "Something went wrong.";
@@ -61,6 +63,17 @@ function fmtDate(iso: string): string {
   return isNaN(d.getTime()) ? iso : d.toLocaleString();
 }
 
+function renderDraft(d: Draft): HTMLElement {
+  const box = el("div", { cls: "draft" });
+  box.appendChild(el("p", { cls: "draft-label", text: "AI draft — verify before use" }));
+  box.appendChild(el("p", { text: d.draft }));
+  box.appendChild(el("h3", { text: "Verify these" }));
+  const ul = el("ul");
+  for (const v of d.verify) ul.appendChild(el("li", { text: v }));
+  box.appendChild(ul);
+  return box;
+}
+
 function renderRow(q: Question): HTMLElement {
   const li = el("li", { cls: "q" });
   li.appendChild(el("p", { cls: "q-text", text: q.question }));
@@ -73,6 +86,11 @@ function renderRow(q: Question): HTMLElement {
   }
 
   const actions = el("div", { cls: "actions" });
+
+  const draftBtn = el("button", { text: busy.has(q.id) ? "Drafting…" : q.draft ? "Redraft" : "Draft" });
+  draftBtn.disabled = busy.has(q.id);
+  draftBtn.addEventListener("click", () => onDraft(q.id));
+  actions.appendChild(draftBtn);
 
   if (confirming.has(q.id)) {
     const yes = el("button", { cls: "danger", text: "Confirm delete" });
@@ -93,6 +111,9 @@ function renderRow(q: Question): HTMLElement {
   }
   li.appendChild(actions);
 
+  const err = rowErrors.get(q.id);
+  if (err) li.appendChild(el("p", { cls: "row-error", text: err }));
+  if (q.draft) li.appendChild(renderDraft(q.draft));
   return li;
 }
 
@@ -110,11 +131,27 @@ async function refresh() {
   }
 }
 
+async function onDraft(id: string) {
+  busy.add(id);
+  rowErrors.delete(id);
+  render();
+  try {
+    const updated = await invoke<Question>("draft_answer", { id });
+    questions = questions.map((q) => (q.id === id ? updated : q));
+  } catch (e) {
+    rowErrors.set(id, errText(e));
+  } finally {
+    busy.delete(id);
+    render();
+  }
+}
+
 async function onDelete(id: string) {
   confirming.delete(id);
   try {
     await invoke("delete_question", { id });
     questions = questions.filter((q) => q.id !== id);
+    rowErrors.delete(id);
     clearError();
   } catch (e) {
     showError(`Could not delete the question: ${errText(e)}`);

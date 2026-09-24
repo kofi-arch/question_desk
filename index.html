@@ -2,19 +2,38 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="stylesheet" href="/src/styles.css" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Question Desk</title>
+    <link rel="stylesheet" href="/src/styles.css" />
     <script type="module" src="/src/main.ts" defer></script>
   </head>
-
   <body>
-    <main class="container">
+    <main>
       <h1>Question Desk</h1>
-      <p>
-        Scaffold only — build the log form, the question list, and the draft
-        button here as part of M2/M3/M4. See the project brief.
-      </p>
+
+      <form id="q-form">
+        <label>Question <span class="req">(required)</span>
+          <textarea id="f-question" rows="3" required></textarea>
+        </label>
+        <div class="row">
+          <label>Who asked
+            <input id="f-asker" type="text" placeholder="e.g. youth group, Nairobi" />
+          </label>
+          <label>Where / context
+            <input id="f-context" type="text" placeholder="e.g. after Sunday session" />
+          </label>
+        </div>
+        <label>Tags <span class="hint">(comma-separated)</span>
+          <input id="f-tags" type="text" placeholder="suffering, theodicy" />
+        </label>
+        <button type="submit" id="save-btn">Save question</button>
+      </form>
+
+      <p id="error" class="error" role="alert" hidden></p>
+
+      <h2>Saved questions</h2>
+      <p id="empty" class="empty" hidden>No questions yet. Log the first one above.</p>
+      <ul id="list"></ul>
     </main>
   </body>
 </html>
